@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optymalizator cięcia dłużycy 1D</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Optymalizator cięcia dłużycy 1D</h1>
+        </header>
+
+        <main>
+            <!-- Import/Export Section -->
+            <section class="section-box import-export-section">
+                <div class="button-group">
+                    <button onclick="importCSV()" class="secondary-btn">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 12l-4-4h3V0h2v8h3l-4 4z"/>
+                            <path d="M0 14h16v2H0z"/>
+                        </svg>
+                        Import CSV
+                    </button>
+                    <button onclick="exportCSV()" class="secondary-btn">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 0l4 4H9v8H7V4H4l4-4z"/>
+                            <path d="M0 14h16v2H0z"/>
+                        </svg>
+                        Eksport CSV
+                    </button>
+                    <button onclick="exportPDF()" class="secondary-btn">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M14 0H2C.9 0 0 .9 0 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V2c0-1.1-.9-2-2-2zM5 10H3V6h2c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1zm3 0H6V6h2c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1zm3 0V6h2v1h-1v1h1v2h-2z"/>
+                        </svg>
+                        Eksport PDF
+                    </button>
+                </div>
+            </section>
+
+            <!-- Stock Bars Section -->
+            <section class="section-box">
+                <h2>Elementy do rozcinania</h2>
+                <table id="stockBarsTable">
+                    <thead>
+                        <tr>
+                            <th>Długość (mm)</th>
+                            <th>Ilość</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockBarsBody">
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Cut Elements Section -->
+            <section class="section-box">
+                <h2>Elementy do wycięcia</h2>
+                <table id="elementsTable">
+                    <thead>
+                        <tr>
+                            <th>Długość (mm)</th>
+                            <th>Ilość (szt.)</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="elementsBody">
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Calculation Section -->
+            <section class="section-box calculation-section">
+                <button id="calculateBtn" onclick="calculate()">
+                    <span id="btnText">OBLICZ OPTYMALIZACJĘ</span>
+                    <div id="btnProgress" class="button-progress"></div>
+                </button>
+
+                <div class="depth-control">
+                    <label for="optimizationDepth">Głębokość optymalizacji:</label>
+                    <div class="depth-input-group">
+                        <input type="range" id="optimizationDepth" min="1" max="20" value="10" />
+                        <span id="depthValue">10</span>
+                    </div>
+                    <small>Wyższa wartość = lepsza optymalizacja, ale wolniejsze obliczenia (wartości >10 mogą być bardzo wolne)</small>
+                </div>
+            </section>
+
+            <!-- Recalculation Message -->
+            <div id="recalculationMessage" class="recalculation-message" style="display: none;">
+                Zmieniono dane wejściowe. Kliknij 'OBLICZ OPTYMALIZACJĘ' aby przeliczyć.
+            </div>
+
+            <!-- Results Section -->
+            <section class="section-box" id="resultsSection" style="display: none;">
+                <h2>Wyniki - Plan cięcia</h2>
+                <div id="resultsContainer"></div>
+            </section>
+
+            <!-- Statistics Section -->
+            <section class="section-box" id="statisticsSection" style="display: none;">
+                <h2>Statystyki</h2>
+                <div id="statisticsContainer"></div>
+            </section>
+        </main>
+    </div>
+
+    <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="handleCSVImport(event)">
+
+    <script src="app.js"></script>
+</body>
+</html>
