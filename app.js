@@ -505,17 +505,27 @@ function handleCSVImport(event) {
 
             lines.forEach(line => {
                 line = line.trim();
-                if (line === 'STOCK_BARS') {
+
+                // Sprawdź nagłówki (z przecinkiem lub bez) - arkusze często dodają przecinek
+                if (line === 'STOCK_BARS' || line === 'STOCK_BARS,') {
                     mode = 'bars';
-                } else if (line === 'CUT_ELEMENTS') {
+                    return; // Pomiń linię nagłówka
+                } else if (line === 'CUT_ELEMENTS' || line === 'CUT_ELEMENTS,') {
                     mode = 'elements';
-                } else if (mode && line) {
-                    const parts = line.split(',');
+                    return; // Pomiń linię nagłówka
+                }
+
+                // Przetwarzaj dane tylko gdy jesteśmy w trybie bars lub elements
+                if (mode && line && !line.startsWith('STOCK_BARS') && !line.startsWith('CUT_ELEMENTS')) {
+                    // Usuń przecinek końcowy jeśli istnieje i rozdziel
+                    const cleanLine = line.replace(/,\s*$/, ''); // Usuń końcowy przecinek
+                    const parts = cleanLine.split(',').map(p => p.trim()).filter(p => p);
+
                     if (parts.length >= 2) {
                         const length = parseInt(parts[0]);
                         const quantity = parseInt(parts[1]);
 
-                        if (length > 0 && quantity > 0) {
+                        if (!isNaN(length) && !isNaN(quantity) && length > 0 && quantity > 0) {
                             if (mode === 'bars') {
                                 stockBars.push({ length, quantity, id: nextStockBarId++ });
                             } else if (mode === 'elements') {
@@ -545,12 +555,12 @@ function handleCSVImport(event) {
 }
 
 function exportCSV() {
-    let csvContent = 'STOCK_BARS\n';
+    let csvContent = 'STOCK_BARS,\n';
     stockBars.forEach(bar => {
         csvContent += `${bar.length},${bar.quantity}\n`;
     });
 
-    csvContent += '\nCUT_ELEMENTS\n';
+    csvContent += 'CUT_ELEMENTS,\n';
     elements.forEach(elem => {
         csvContent += `${elem.length},${elem.quantity}\n`;
     });
@@ -562,104 +572,192 @@ function exportCSV() {
     link.click();
 }
 
-// PDF Export Function
+// PDF Export Function using jsPDF library
 function exportPDF() {
     if (!optimizationResults) {
         alert('Najpierw wykonaj optymalizację, aby wygenerować PDF');
         return;
     }
 
-    // Create PDF content as HTML
-    let pdfHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Plan Cięcia - Optymalizator dłużycy 1D</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1 { color: #21808d; text-align: center; }
-        h2 { color: #333; margin-top: 30px; border-bottom: 2px solid #21808d; padding-bottom: 5px; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #21808d; color: white; }
-        .bar-visual { height: 40px; background: #e5e5e5; display: flex; margin: 10px 0; border-radius: 4px; overflow: hidden; }
-        .cut-segment { height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px; border-right: 2px solid white; }
-        .stats { background: #f0f0f0; padding: 15px; border-radius: 5px; margin: 20px 0; }
-        .stats ul { list-style: none; padding: 0; }
-        .stats li { padding: 5px 0; }
-        .bar-item { margin-bottom: 25px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
-        @media print { .no-print { display: none; } }
-    </style>
-</head>
-<body>
-    <h1>Plan Cięcia - Optymalizator dłużycy 1D</h1>
-    <p style="text-align: center; color: #666;">Data: ${new Date().toLocaleDateString('pl-PL')}</p>
+    // Dynamicznie załaduj bibliotekę jsPDF jeśli jeszcze nie jest załadowana
+    if (typeof window.jspdf === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = () => generatePDFDocument();
+        document.head.appendChild(script);
+    } else {
+        generatePDFDocument();
+    }
+}
 
-    <h2>Elementy do rozcinania</h2>
-    <table>
-        <tr><th>Długość (mm)</th><th>Ilość</th></tr>
-        ${stockBars.map(bar => `<tr><td>${bar.length}</td><td>${bar.quantity}</td></tr>`).join('')}
-    </table>
-
-    <h2>Elementy do wycięcia</h2>
-    <table>
-        <tr><th>Długość (mm)</th><th>Ilość</th></tr>
-        ${elements.map(elem => `<tr><td>${elem.length}</td><td>${elem.quantity}</td></tr>`).join('')}
-    </table>
-
-    <h2>Plan cięcia</h2>
-`;
+function generatePDFDocument() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
 
     const colors = [
-        '#3b82f6', '#f59e0b', '#22c55e', '#ef4444', 
-        '#9333ea', '#f97316', '#ec4899', '#06b6d4'
+        [59, 130, 246], [245, 158, 11], [34, 197, 94], [239, 68, 68],
+        [147, 51, 234], [249, 115, 22], [236, 72, 153], [6, 182, 212]
     ];
 
+    let yPos = 20;
+
+    // Nagłówek
+    doc.setFontSize(18);
+    doc.setTextColor(33, 128, 141);
+    doc.text('Plan Cięcia - Optymalizator dłużycy 1D', 105, yPos, { align: 'center' });
+
+    yPos += 10;
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Data: ${new Date().toLocaleDateString('pl-PL')}`, 105, yPos, { align: 'center' });
+
+    yPos += 15;
+
+    // Elementy do rozcinania
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text('Elementy do rozcinania', 14, yPos);
+    yPos += 7;
+
+    doc.setFontSize(10);
+    doc.setDrawColor(200);
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, yPos, 90, 7, 'F');
+    doc.text('Długość (mm)', 16, yPos + 5);
+    doc.text('Ilość', 70, yPos + 5);
+    yPos += 7;
+
+    stockBars.forEach(bar => {
+        doc.setFillColor(255, 255, 255);
+        doc.rect(14, yPos, 90, 6);
+        doc.text(String(bar.length), 16, yPos + 4);
+        doc.text(String(bar.quantity), 70, yPos + 4);
+        yPos += 6;
+    });
+
+    yPos += 10;
+
+    // Elementy do wycięcia
+    doc.setFontSize(14);
+    doc.text('Elementy do wycięcia', 14, yPos);
+    yPos += 7;
+
+    doc.setFontSize(10);
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, yPos, 90, 7, 'F');
+    doc.text('Długość (mm)', 16, yPos + 5);
+    doc.text('Ilość (szt.)', 70, yPos + 5);
+    yPos += 7;
+
+    elements.forEach(elem => {
+        if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+        }
+        doc.setFillColor(255, 255, 255);
+        doc.rect(14, yPos, 90, 6);
+        doc.text(String(elem.length), 16, yPos + 4);
+        doc.text(String(elem.quantity), 70, yPos + 4);
+        yPos += 6;
+    });
+
+    yPos += 10;
+
+    // Plan cięcia
+    doc.addPage();
+    yPos = 20;
+
+    doc.setFontSize(14);
+    doc.text('Plan cięcia', 14, yPos);
+    yPos += 10;
+
     optimizationResults.bars.forEach((bar, index) => {
-        pdfHTML += `
-    <div class="bar-item">
-        <h3>Pręt ${index + 1} (${bar.length}mm)</h3>
-        <p><strong>Cięcia:</strong> ${bar.cuts.join(', ')}</p>
-        <div class="bar-visual">`;
-
-        bar.cuts.forEach((cut, cutIndex) => {
-            const width = (cut / bar.length * 100).toFixed(2);
-            pdfHTML += `<div class="cut-segment" style="width: ${width}%; background: ${colors[cutIndex % colors.length]};">${cut}mm</div>`;
-        });
-
-        if (bar.waste > 0) {
-            const wasteWidth = (bar.waste / bar.length * 100).toFixed(2);
-            pdfHTML += `<div style="width: ${wasteWidth}%; background: #ccc; height: 100%;"></div>`;
+        if (yPos > 250) {
+            doc.addPage();
+            yPos = 20;
         }
 
-        pdfHTML += `</div>
-        <p>Wykorzystano: ${bar.length - bar.waste}mm | Odpad: ${bar.waste}mm (${(bar.waste / bar.length * 100).toFixed(1)}%)</p>
-    </div>`;
+        // Tytuł pręta
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Pręt ${index + 1} (${bar.length}mm)`, 14, yPos);
+        yPos += 6;
+
+        // Cięcia tekstem
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Cięcia: ${bar.cuts.join(', ')}`, 14, yPos);
+        yPos += 8;
+
+        // Graficzna reprezentacja
+        const barWidth = 180;
+        const barHeight = 12;
+        let xPos = 14;
+
+        // Obramowanie pręta
+        doc.setDrawColor(150);
+        doc.rect(xPos, yPos, barWidth, barHeight);
+
+        // Segmenty cięć
+        bar.cuts.forEach((cut, cutIndex) => {
+            const segmentWidth = (cut / bar.length) * barWidth;
+            const color = colors[cutIndex % colors.length];
+
+            doc.setFillColor(color[0], color[1], color[2]);
+            doc.rect(xPos, yPos, segmentWidth, barHeight, 'F');
+
+            // Linia oddzielająca
+            if (cutIndex < bar.cuts.length - 1 || bar.waste > 0) {
+                doc.setDrawColor(255);
+                doc.setLineWidth(0.5);
+                doc.line(xPos + segmentWidth, yPos, xPos + segmentWidth, yPos + barHeight);
+            }
+
+            // Tekst z rozmiarem
+            if (segmentWidth > 15) {
+                doc.setTextColor(255);
+                doc.setFontSize(8);
+                doc.text(cut + 'mm', xPos + segmentWidth / 2, yPos + barHeight / 2 + 2, { align: 'center' });
+            }
+
+            xPos += segmentWidth;
+        });
+
+        // Odpad (jeśli istnieje)
+        if (bar.waste > 0) {
+            const wasteWidth = (bar.waste / bar.length) * barWidth;
+            doc.setFillColor(200, 200, 200);
+            doc.rect(xPos, yPos, wasteWidth, barHeight, 'F');
+        }
+
+        yPos += barHeight + 5;
+
+        // Szczegóły
+        doc.setFontSize(9);
+        doc.setTextColor(100);
+        doc.text(`Wykorzystano: ${bar.length - bar.waste}mm | Odpad: ${bar.waste}mm (${(bar.waste / bar.length * 100).toFixed(1)}%)`, 14, yPos);
+        yPos += 12;
     });
+
+    // Statystyki
+    doc.addPage();
+    yPos = 20;
+
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text('Statystyki', 14, yPos);
+    yPos += 10;
 
     const totalLength = optimizationResults.bars.reduce((sum, bar) => sum + bar.length, 0);
     const utilization = (optimizationResults.totalUsed / totalLength * 100).toFixed(1);
 
-    pdfHTML += `
-    <h2>Statystyki</h2>
-    <div class="stats">
-        <ul>
-            <li><strong>Liczba użytych prętów:</strong> ${optimizationResults.totalBars}</li>
-            <li><strong>Odpad całkowity:</strong> ${optimizationResults.totalWaste} mm</li>
-            <li><strong>Wykorzystanie materiału:</strong> ${utilization}%</li>
-        </ul>
-    </div>
-</body>
-</html>`;
+    doc.setFontSize(11);
+    doc.text(`Liczba użytych prętów: ${optimizationResults.totalBars}`, 14, yPos);
+    yPos += 8;
+    doc.text(`Odpad całkowity: ${optimizationResults.totalWaste} mm`, 14, yPos);
+    yPos += 8;
+    doc.text(`Wykorzystanie materiału: ${utilization}%`, 14, yPos);
 
-    // Open in new window for printing
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(pdfHTML);
-    printWindow.document.close();
-
-    // Wait for content to load, then open print dialog
-    setTimeout(() => {
-        printWindow.print();
-    }, 500);
+    // Zapisz PDF
+    doc.save('plan_ciecia.pdf');
 }
