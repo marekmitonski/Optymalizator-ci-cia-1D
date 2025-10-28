@@ -555,7 +555,7 @@ function exportCSV() {
     link.click();
 }
 
-// PDF Export Function using jsPDF with html2canvas
+// PDF Export Function - KOMPAKTOWY Z INTELIGENTNYMI MARGINESAMI
 function exportPDF() {
     if (!optimizationResults) {
         alert('Najpierw wykonaj optymalizację, aby wygenerować PDF');
@@ -563,7 +563,7 @@ function exportPDF() {
     }
     
     loadPDFLibraries().then(() => {
-        generatePDFFromHTML();
+        generateSmartPDF();
     });
 }
 
@@ -599,144 +599,156 @@ function loadPDFLibraries() {
     });
 }
 
-async function generatePDFFromHTML() {
+async function generateSmartPDF() {
     const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
     
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.width = '800px';
-    container.style.padding = '20px';
-    container.style.background = 'white';
-    container.style.fontFamily = 'Arial, sans-serif';
+    // Marginesy - takie same dla wszystkich stron
+    const marginTop = 10;
+    const marginBottom = 10;
+    const marginLeft = 0;
+    const marginRight = 0;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+    const usableHeight = pageHeight - marginTop - marginBottom;
     
     const colors = [
         '#3b82f6', '#f59e0b', '#22c55e', '#ef4444', 
         '#9333ea', '#f97316', '#ec4899', '#06b6d4'
     ];
     
-    let html = `
-        <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #21808d; margin: 0 0 10px 0; font-size: 28px; font-weight: bold;">
+    // Renderuj nagłówek i tabele
+    const headerContainer = document.createElement('div');
+    headerContainer.style.position = 'absolute';
+    headerContainer.style.left = '-9999px';
+    headerContainer.style.width = '800px';
+    headerContainer.style.padding = '15px';
+    headerContainer.style.background = 'white';
+    headerContainer.style.fontFamily = 'Arial, sans-serif';
+    
+    const totalLength = optimizationResults.bars.reduce((sum, bar) => sum + bar.length, 0);
+    const utilization = (optimizationResults.totalUsed / totalLength * 100).toFixed(1);
+    
+    let headerHtml = `
+        <div style="text-align: center; margin-bottom: 15px;">
+            <h1 style="color: #21808d; margin: 0 0 5px 0; font-size: 22px; font-weight: bold;">
                 Plan Cięcia - Optymalizator dłużycy 1D
             </h1>
-            <p style="color: #666; margin: 0; font-size: 14px;">
-                Data: ${new Date().toLocaleDateString('pl-PL', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                })}
+            <p style="color: #666; margin: 0; font-size: 11px;">
+                ${new Date().toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
         </div>
-    `;
-    
-    html += `
-        <div style="margin-bottom: 30px;">
-            <h2 style="color: #333; font-size: 20px; border-bottom: 3px solid #21808d; padding-bottom: 8px; margin-bottom: 15px; font-weight: bold;">
-                Elementy do rozcinania
-            </h2>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
-                <thead>
-                    <tr style="background: #21808d; color: white;">
-                        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-size: 14px;">Długość (mm)</th>
-                        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-size: 14px;">Ilość</th>
-                    </tr>
-                </thead>
-                <tbody>
+        
+        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+            <div style="flex: 1;">
+                <h2 style="color: #333; font-size: 14px; border-bottom: 2px solid #21808d; padding-bottom: 3px; margin-bottom: 8px; font-weight: bold;">
+                    Elementy do rozcinania
+                </h2>
+                <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                    <thead>
+                        <tr style="background: #21808d; color: white;">
+                            <th style="border: 1px solid #ddd; padding: 4px; text-align: left;">Długość</th>
+                            <th style="border: 1px solid #ddd; padding: 4px; text-align: left;">Ilość</th>
+                        </tr>
+                    </thead>
+                    <tbody>
     `;
     
     stockBars.forEach((bar, idx) => {
         const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
-        html += `
+        headerHtml += `
             <tr style="background: ${bgColor};">
-                <td style="border: 1px solid #ddd; padding: 10px; font-size: 13px;">${bar.length}</td>
-                <td style="border: 1px solid #ddd; padding: 10px; font-size: 13px;">${bar.quantity}</td>
+                <td style="border: 1px solid #ddd; padding: 3px;">${bar.length}mm</td>
+                <td style="border: 1px solid #ddd; padding: 3px;">${bar.quantity}</td>
             </tr>
         `;
     });
     
-    html += `
-                </tbody>
-            </table>
-        </div>
-    `;
-    
-    html += `
-        <div style="margin-bottom: 30px;">
-            <h2 style="color: #333; font-size: 20px; border-bottom: 3px solid #21808d; padding-bottom: 8px; margin-bottom: 15px; font-weight: bold;">
-                Elementy do wycięcia
-            </h2>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
-                <thead>
-                    <tr style="background: #21808d; color: white;">
-                        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-size: 14px;">Długość (mm)</th>
-                        <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-size: 14px;">Ilość (szt.)</th>
-                    </tr>
-                </thead>
-                <tbody>
+    headerHtml += `
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="flex: 1;">
+                <h2 style="color: #333; font-size: 14px; border-bottom: 2px solid #21808d; padding-bottom: 3px; margin-bottom: 8px; font-weight: bold;">
+                    Elementy do wycięcia
+                </h2>
+                <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                    <thead>
+                        <tr style="background: #21808d; color: white;">
+                            <th style="border: 1px solid #ddd; padding: 4px; text-align: left;">Długość</th>
+                            <th style="border: 1px solid #ddd; padding: 4px; text-align: left;">Ilość</th>
+                        </tr>
+                    </thead>
+                    <tbody>
     `;
     
     elements.forEach((elem, idx) => {
         const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
-        html += `
+        headerHtml += `
             <tr style="background: ${bgColor};">
-                <td style="border: 1px solid #ddd; padding: 10px; font-size: 13px;">${elem.length}</td>
-                <td style="border: 1px solid #ddd; padding: 10px; font-size: 13px;">${elem.quantity}</td>
+                <td style="border: 1px solid #ddd; padding: 3px;">${elem.length}mm</td>
+                <td style="border: 1px solid #ddd; padding: 3px;">${elem.quantity}</td>
             </tr>
         `;
     });
     
-    html += `
-                </tbody>
-            </table>
+    headerHtml += `
+                    </tbody>
+                </table>
+            </div>
         </div>
+        
+        <h2 style="color: #333; font-size: 14px; border-bottom: 2px solid #21808d; padding-bottom: 3px; margin-bottom: 10px; font-weight: bold;">
+            Plan cięcia
+        </h2>
     `;
     
-    container.innerHTML = html;
-    document.body.appendChild(container);
+    headerContainer.innerHTML = headerHtml;
+    document.body.appendChild(headerContainer);
     
-    const canvas1 = await html2canvas(container, {
-        scale: 2,
+    const headerCanvas = await html2canvas(headerContainer, {
+        scale: 1.5,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff'
     });
     
-    document.body.removeChild(container);
+    document.body.removeChild(headerContainer);
     
-    const container2 = document.createElement('div');
-    container2.style.position = 'absolute';
-    container2.style.left = '-9999px';
-    container2.style.width = '800px';
-    container2.style.padding = '20px';
-    container2.style.background = 'white';
-    container2.style.fontFamily = 'Arial, sans-serif';
+    // Dodaj nagłówek do PDF z marginesem
+    const headerImg = headerCanvas.toDataURL('image/jpeg', 0.85);
+    const headerImgHeight = (headerCanvas.height * contentWidth) / headerCanvas.width;
+    pdf.addImage(headerImg, 'JPEG', marginLeft, marginTop, contentWidth, headerImgHeight);
     
-    let html2 = `
-        <div style="margin-bottom: 30px;">
-            <h2 style="color: #333; font-size: 20px; border-bottom: 3px solid #21808d; padding-bottom: 8px; margin-bottom: 20px; font-weight: bold;">
-                Plan cięcia
-            </h2>
-        </div>
-    `;
+    let currentY = marginTop + headerImgHeight;
     
-    optimizationResults.bars.forEach((bar, index) => {
-        html2 += `
-            <div style="margin-bottom: 25px; padding: 15px; border: 2px solid #ddd; border-radius: 8px; background: #f9f9f9;">
-                <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; color: #21808d;">
-                    Pręt ${index + 1} (${bar.length}mm)
-                </h3>
-                <p style="margin: 0 0 12px 0; font-size: 13px; color: #555;">
-                    <strong>Cięcia:</strong> ${bar.cuts.join(', ')}
-                </p>
-                <div style="width: 100%; height: 50px; background: #e5e5e5; display: flex; border-radius: 6px; overflow: hidden; margin-bottom: 10px; border: 1px solid #ccc;">
+    // Renderuj każdy pręt osobno i sprawdzaj miejsce
+    for (let i = 0; i < optimizationResults.bars.length; i++) {
+        const bar = optimizationResults.bars[i];
+        
+        const barContainer = document.createElement('div');
+        barContainer.style.position = 'absolute';
+        barContainer.style.left = '-9999px';
+        barContainer.style.width = '800px';
+        barContainer.style.padding = '0 15px';
+        barContainer.style.background = 'white';
+        barContainer.style.fontFamily = 'Arial, sans-serif';
+        
+        let barHtml = `
+            <div style="margin-bottom: 12px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9;">
+                <div style="font-size: 11px; font-weight: bold; color: #21808d; margin-bottom: 5px;">
+                    Pręt ${i + 1} (${bar.length}mm): ${bar.cuts.join(', ')}
+                </div>
+                <div style="width: 100%; height: 30px; background: #e5e5e5; display: flex; border-radius: 3px; overflow: hidden; margin-bottom: 5px;">
         `;
         
         bar.cuts.forEach((cut, cutIndex) => {
             const width = (cut / bar.length * 100).toFixed(2);
             const color = colors[cutIndex % colors.length];
-            html2 += `
-                <div style="width: ${width}%; height: 100%; background: ${color}; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 13px; border-right: 2px solid white; box-sizing: border-box;">
+            barHtml += `
+                <div style="width: ${width}%; height: 100%; background: ${color}; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 9px; border-right: 1px solid white;">
                     ${cut}mm
                 </div>
             `;
@@ -744,128 +756,87 @@ async function generatePDFFromHTML() {
         
         if (bar.waste > 0) {
             const wasteWidth = (bar.waste / bar.length * 100).toFixed(2);
-            html2 += `
-                <div style="width: ${wasteWidth}%; height: 100%; background: #ccc; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #666;">
-                    odpad
-                </div>
+            barHtml += `
+                <div style="width: ${wasteWidth}%; height: 100%; background: #ccc;"></div>
             `;
         }
         
-        html2 += `
+        barHtml += `
                 </div>
-                <p style="margin: 0; font-size: 12px; color: #666;">
-                    ✓ Wykorzystano: <strong>${bar.length - bar.waste}mm</strong> | 
-                    ✗ Odpad: <strong>${bar.waste}mm (${(bar.waste / bar.length * 100).toFixed(1)}%)</strong>
-                </p>
+                <div style="font-size: 9px; color: #666;">
+                    Wykorzystano: ${bar.length - bar.waste}mm | Odpad: ${bar.waste}mm (${(bar.waste / bar.length * 100).toFixed(1)}%)
+                </div>
             </div>
         `;
-    });
+        
+        barContainer.innerHTML = barHtml;
+        document.body.appendChild(barContainer);
+        
+        const barCanvas = await html2canvas(barContainer, {
+            scale: 1.5,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff'
+        });
+        
+        document.body.removeChild(barContainer);
+        
+        const barImgHeight = (barCanvas.height * contentWidth) / barCanvas.width;
+        
+        // Sprawdź czy box zmieści się na tej stronie (zostaw 20mm na statystyki)
+        if (currentY + barImgHeight + 20 > marginTop + usableHeight) {
+            // Nowa strona
+            pdf.addPage();
+            currentY = marginTop; // RESET NA MARGINES GÓRNY
+        }
+        
+        const barImg = barCanvas.toDataURL('image/jpeg', 0.85);
+        pdf.addImage(barImg, 'JPEG', marginLeft, currentY, contentWidth, barImgHeight);
+        currentY += barImgHeight;
+    }
     
-    container2.innerHTML = html2;
-    document.body.appendChild(container2);
+    // Dodaj statystyki (jeśli zmieści się, jeśli nie - nowa strona)
+    const statsContainer = document.createElement('div');
+    statsContainer.style.position = 'absolute';
+    statsContainer.style.left = '-9999px';
+    statsContainer.style.width = '800px';
+    statsContainer.style.padding = '0 15px';
+    statsContainer.style.background = 'white';
+    statsContainer.style.fontFamily = 'Arial, sans-serif';
     
-    const canvas2 = await html2canvas(container2, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-    });
-    
-    document.body.removeChild(container2);
-    
-    const container3 = document.createElement('div');
-    container3.style.position = 'absolute';
-    container3.style.left = '-9999px';
-    container3.style.width = '800px';
-    container3.style.padding = '20px';
-    container3.style.background = 'white';
-    container3.style.fontFamily = 'Arial, sans-serif';
-    
-    const totalLength = optimizationResults.bars.reduce((sum, bar) => sum + bar.length, 0);
-    const utilization = (optimizationResults.totalUsed / totalLength * 100).toFixed(1);
-    
-    let html3 = `
-        <div style="margin-top: 40px;">
-            <h2 style="color: #333; font-size: 20px; border-bottom: 3px solid #21808d; padding-bottom: 8px; margin-bottom: 20px; font-weight: bold;">
-                Statystyki
-            </h2>
-            <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); padding: 25px; border-radius: 10px; border: 2px solid #21808d;">
-                <div style="margin-bottom: 15px; font-size: 15px;">
-                    <strong style="color: #21808d;">📊 Liczba użytych prętów:</strong> 
-                    <span style="font-size: 18px; font-weight: bold;">${optimizationResults.totalBars}</span>
-                </div>
-                <div style="margin-bottom: 15px; font-size: 15px;">
-                    <strong style="color: #21808d;">📏 Odpad całkowity:</strong> 
-                    <span style="font-size: 18px; font-weight: bold;">${optimizationResults.totalWaste} mm</span>
-                </div>
-                <div style="font-size: 15px;">
-                    <strong style="color: #21808d;">✅ Wykorzystanie materiału:</strong> 
-                    <span style="font-size: 18px; font-weight: bold; color: #22c55e;">${utilization}%</span>
-                </div>
+    let statsHtml = `
+        <div style="background: #f5f7fa; padding: 12px; border-radius: 6px; border: 2px solid #21808d; margin-top: 10px;">
+            <h2 style="color: #333; font-size: 14px; margin: 0 0 8px 0; font-weight: bold;">Statystyki</h2>
+            <div style="font-size: 11px; display: flex; gap: 20px;">
+                <div><strong>Liczba prętów:</strong> ${optimizationResults.totalBars}</div>
+                <div><strong>Odpad:</strong> ${optimizationResults.totalWaste}mm</div>
+                <div><strong>Wykorzystanie:</strong> <span style="color: #22c55e; font-weight: bold;">${utilization}%</span></div>
             </div>
         </div>
     `;
     
-    container3.innerHTML = html3;
-    document.body.appendChild(container3);
+    statsContainer.innerHTML = statsHtml;
+    document.body.appendChild(statsContainer);
     
-    const canvas3 = await html2canvas(container3, {
-        scale: 2,
+    const statsCanvas = await html2canvas(statsContainer, {
+        scale: 1.5,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff'
     });
     
-    document.body.removeChild(container3);
+    document.body.removeChild(statsContainer);
     
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
+    const statsImgHeight = (statsCanvas.height * contentWidth) / statsCanvas.width;
     
-    const img1 = canvas1.toDataURL('image/png');
-    const imgHeight1 = (canvas1.height * pageWidth) / canvas1.width;
-    pdf.addImage(img1, 'PNG', 0, 0, pageWidth, Math.min(imgHeight1, pageHeight));
-    
-    pdf.addPage();
-    const img2 = canvas2.toDataURL('image/png');
-    const imgHeight2 = (canvas2.height * pageWidth) / canvas2.width;
-    
-    if (imgHeight2 <= pageHeight) {
-        pdf.addImage(img2, 'PNG', 0, 0, pageWidth, imgHeight2);
-    } else {
-        let currentY = 0;
-        let remainingHeight = imgHeight2;
-        
-        while (remainingHeight > 0) {
-            if (currentY > 0) {
-                pdf.addPage();
-            }
-            
-            const heightToAdd = Math.min(pageHeight, remainingHeight);
-            const sourceY = (currentY / imgHeight2) * canvas2.height;
-            const sourceHeight = (heightToAdd / imgHeight2) * canvas2.height;
-            
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = canvas2.width;
-            tempCanvas.height = sourceHeight;
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            tempCtx.drawImage(canvas2, 0, sourceY, canvas2.width, sourceHeight, 0, 0, canvas2.width, sourceHeight);
-            
-            const tempImg = tempCanvas.toDataURL('image/png');
-            pdf.addImage(tempImg, 'PNG', 0, 0, pageWidth, heightToAdd);
-            
-            currentY += heightToAdd;
-            remainingHeight -= heightToAdd;
-        }
+    if (currentY + statsImgHeight > marginTop + usableHeight) {
+        pdf.addPage();
+        currentY = marginTop; // RESET NA MARGINES GÓRNY
     }
     
-    pdf.addPage();
-    const img3 = canvas3.toDataURL('image/png');
-    const imgHeight3 = (canvas3.height * pageWidth) / canvas3.width;
-    pdf.addImage(img3, 'PNG', 0, 0, pageWidth, Math.min(imgHeight3, pageHeight));
+    const statsImg = statsCanvas.toDataURL('image/jpeg', 0.85);
+    pdf.addImage(statsImg, 'JPEG', marginLeft, currentY, contentWidth, statsImgHeight);
     
     pdf.save('plan_ciecia.pdf');
-    
     alert('PDF został wygenerowany i pobrany!');
 }
